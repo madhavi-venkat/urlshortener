@@ -114,6 +114,17 @@ just be ready to explain the collision-retry logic live.*
           └──►  Analytics writer (async, non-blocking)
 ```
 
+![System architecture diagram](./docs/diagrams/architecture.png)
+
+Generated from the actual code (controllers, services, cache layer), not from this planning
+doc. **Client** (React SPA) → **HTTP entry point** (Spring Boot's embedded Tomcat) → **URL
+Shortener API** (the Spring Boot monolith — controllers, `ShortUrlService`, `StatsService`) →
+**Data stores** (PostgreSQL for links/clicks, Redis for the cache-aside redirect cache). The
+whole backend is modeled as one node, not one per controller — none of the three controllers are
+independently deployable, they ship in the same JAR, and decomposing further would misrepresent
+the actual deployment unit. Editable source (FigJam, live):
+https://www.figma.com/board/xy88no3VflfWb7JDhJKKp3
+
 **Create flow:** validate URL → (guard malicious) → allocate code → persist Postgres → return.
 **Redirect flow:** Redis lookup → hit: 302 + async click event → miss: Postgres → populate cache →
 302 (or 404 if unknown/expired).
