@@ -1,3 +1,4 @@
+
 package com.urlshortener.service.analytics;
 
 import com.urlshortener.domain.ShortUrl;
@@ -36,7 +37,7 @@ public class StatsService {
     }
 
     @Transactional(readOnly = true)
-    public StatsResponse statsFor(String code, StatsPeriod period) {
+    public StatsResponse statsFor(String code) {
         ShortUrl url = shortUrlRepository.findByCode(code)
                 .orElseThrow(() -> new ShortUrlNotFoundException(code));
 
@@ -48,30 +49,7 @@ public class StatsService {
             byCountry.merge(country, row.getClicks(), Long::sum);
         }
 
-        List<StatsResponse.TimeBucket> byPeriod = clickEventRepository
-                .countByTimeBucket(url.getId(), period.sqlUnit())
-                .stream()
-                .map(row -> new StatsResponse.TimeBucket(row.getBucket(), row.getClicks()))
-                .toList();
-
-        return new StatsResponse(code, total, byCountry, period.name().toLowerCase(), byPeriod);
-    }
-
-    /** Single-row lookup, e.g. to pre-fill the edit form for one code. */
-    @Transactional(readOnly = true)
-    public AdminUrlSummary summaryFor(String code) {
-        ShortUrl url = shortUrlRepository.findByCode(code)
-                .orElseThrow(() -> new ShortUrlNotFoundException(code));
-        long total = clickEventRepository.countByShortUrlId(url.getId());
-        return new AdminUrlSummary(
-                url.getCode(),
-                url.getLongUrl(),
-                url.isCustomAlias(),
-                url.isActive(),
-                url.getCreatedAt(),
-                url.getUpdatedAt(),
-                url.getExpiresAt(),
-                total);
+        return new StatsResponse(code, total, byCountry);
     }
 
     /**
@@ -94,7 +72,6 @@ public class StatsService {
                         url.isCustomAlias(),
                         url.isActive(),
                         url.getCreatedAt(),
-                        url.getUpdatedAt(),
                         url.getExpiresAt(),
                         clicksByUrlId.getOrDefault(url.getId(), 0L)))
                 .toList();
