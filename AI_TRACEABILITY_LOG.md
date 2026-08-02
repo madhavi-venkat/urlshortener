@@ -9,14 +9,15 @@ rejected, with rationale and human sign-off. Maintained throughout the build.*
 
 ## How I used AI (approach)
 
-- I define each task with **intent, constraints, acceptance criteria, and technical context** before
-  prompting — not "write a URL shortener" but "generate the code-allocation service; constraint: zero
-  collisions by construction; must be unit-testable; Java 21 / Spring."
-- I treat AI output as a **draft to be verified**, never as final. Every accepted piece has a reason it
-  was accepted; every rejection has a reason.
-- I **scope AI work to a reviewable diff** — small enough that I can verify correctness by reading it.
-  Oversized AI output is rejected and re-requested in smaller pieces.
-- **High-impact / security-sensitive code requires my explicit sign-off** and a test that proves it.
+- Started by defining the **intent, constraints, acceptance criteria, and technical context** for each
+  task before using AI — not "write a URL shortener" but "generate the code-allocation service;
+  constraint: zero collisions by construction; must be unit-testable; Java 21 / Spring."
+- Used AI-generated code as **a starting point rather than the final solution**, with every change
+  reviewed, validated, and refined before acceptance.
+- Kept AI-generated changes **small, focused, and reviewable** to simplify verification and testing —
+  oversized output was rejected and re-requested in smaller pieces.
+- Used **manual review and automated tests** to validate security-sensitive, core business logic, and
+  performance-critical code before completion.
 
 ---
 
