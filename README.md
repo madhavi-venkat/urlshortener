@@ -11,6 +11,7 @@ validation, and AI-usage traceability documented alongside the code.
 - `SCENARIOS.md` — the greenfield / brownfield / ambiguous scenarios.
 - `AI_TRACEABILITY_LOG.md` — where AI was used, and every accept/edit/reject with rationale.
 - `ENGINEERING_SUMMARY.md` — plan, trade-offs, validation, assumptions, limitations.
+- [`Application_Demo.mp4`](./docs/diagrams/Application_Demo.mp4) — walkthrough of the running app.
 
 ---
 
