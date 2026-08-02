@@ -1,0 +1,3 @@
+com\urlshortener\service\CodeGeneratorTest.class
+com\urlshortener\service\ShortUrlServiceTest.class
+com\urlshortener\service\security\UrlSafetyValidatorTest.class

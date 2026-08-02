@@ -1,0 +1,6 @@
+{
+  "enabledMcpjsonServers": [
+    "nano-banana-2"
+  ],
+  "enableAllProjectMcpServers": true
+}

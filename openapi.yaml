@@ -1,0 +1,439 @@
+openapi: 3.0.3
+info:
+  title: URL Shortener API
+  description: >
+    Create short links, redirect through them, and manage/analyze them from the
+    admin dashboard. All endpoints are served from a single Spring Boot app;
+    `/api/v1/**` is CORS-restricted to the configured frontend origin
+    (`app.cors.allowed-origins`, default `http://localhost:5173`) and to
+    GET/POST/PATCH. The `/{code}` redirect is a plain browser navigation, not a
+    fetch/XHR target, so it is not CORS-gated.
+  version: "1.0.0"
+servers:
+  - url: http://localhost:8080
+    description: Local development
+
+tags:
+  - name: Links
+    description: Public link creation and redirection.
+  - name: Admin
+    description: >
+      Dashboard/analytics/edit surface. No access control yet — anyone who can
+      reach the API can reach `/api/v1/admin/**`. Acceptable for this
+      prototype; HTTP Basic (or similar) in front of this path is the natural
+      next step before it's exposed anywhere but localhost.
+
+paths:
+  /api/v1/urls:
+    post:
+      tags: [Links]
+      operationId: createShortUrl
+      summary: Create a short URL
+      description: >
+        Validates the destination (http/https only, SSRF-guarded against
+        internal/loopback targets, bounded length) before shortening it.
+        Provide `customAlias` to pick your own code; omit it for a randomly
+        generated one.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateShortUrlRequest'
+            examples:
+              generated:
+                summary: Random code, no expiry
+                value:
+                  longUrl: https://example.com/a/very/long/path
+              customAliasWithExpiry:
+                summary: Custom alias, expires in a day
+                value:
+                  longUrl: https://example.com/a/very/long/path
+                  customAlias: launch-2026
+                  expiresInSeconds: 86400
+      responses:
+        '201':
+          description: Short URL created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CreateShortUrlResponse'
+        '400':
+          description: Missing/invalid/unsafe `longUrl`, or a malformed `customAlias`
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetail'
+        '409':
+          description: "`customAlias` is already taken"
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetail'
+        '503':
+          description: Could not generate a unique random code after retrying (code space exhausted)
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetail'
+
+  /{code}:
+    get:
+      tags: [Links]
+      operationId: redirect
+      summary: Resolve a short code and redirect to its destination
+      description: >
+        302 (not 301) so every click reaches the service and analytics stay
+        accurate. Fires an async, failure-isolated click record (geo derived
+        from IP, then the IP is discarded) before returning the redirect.
+      parameters:
+        - name: code
+          in: path
+          required: true
+          schema:
+            type: string
+          example: aX9btQ2
+      responses:
+        '302':
+          description: Redirect to the destination URL
+          headers:
+            Location:
+              schema:
+                type: string
+                format: uri
+        '404':
+          description: Unknown, deactivated, or expired code
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetail'
+
+  /api/v1/admin/urls:
+    get:
+      tags: [Admin]
+      operationId: listUrls
+      summary: List every short URL
+      description: Newest first, each with its all-time click total.
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/AdminUrlSummary'
+
+  /api/v1/admin/urls/{code}:
+    get:
+      tags: [Admin]
+      operationId: getUrl
+      summary: Get one short URL's details
+      description: Used to pre-fill the edit form.
+      parameters:
+        - $ref: '#/components/parameters/CodePathParam'
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AdminUrlSummary'
+        '404':
+          description: Unknown code
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetail'
+    patch:
+      tags: [Admin]
+      operationId: updateUrl
+      summary: Edit a short URL's destination and/or expiry
+      description: >
+        The code/alias itself is immutable. `longUrl` is re-validated through
+        the same safety gate as creation. Expiry is tri-state: set
+        `changeExpiry: false` to leave the current expiry untouched
+        (`expiresInSeconds` is then ignored); set `changeExpiry: true` to
+        replace it — `expiresInSeconds: null` clears it (never expires),
+        otherwise it's recomputed as *now + expiresInSeconds*. Evicts any
+        cached redirect target so the change is visible on the very next
+        redirect.
+      parameters:
+        - $ref: '#/components/parameters/CodePathParam'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateShortUrlRequest'
+            examples:
+              destinationOnly:
+                summary: Change destination, keep expiry as-is
+                value:
+                  longUrl: https://example.com/updated-destination
+                  changeExpiry: false
+                  expiresInSeconds: null
+              setExpiry:
+                summary: Change destination and set expiry to 1 hour from now
+                value:
+                  longUrl: https://example.com/updated-destination
+                  changeExpiry: true
+                  expiresInSeconds: 3600
+              clearExpiry:
+                summary: Change destination and clear expiry (never expires)
+                value:
+                  longUrl: https://example.com/updated-destination
+                  changeExpiry: true
+                  expiresInSeconds: null
+      responses:
+        '200':
+          description: Updated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UpdateShortUrlResponse'
+        '400':
+          description: Missing/invalid/unsafe `longUrl`
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetail'
+        '404':
+          description: Unknown code
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetail'
+
+  /api/v1/admin/urls/{code}/stats:
+    get:
+      tags: [Admin]
+      operationId: getStats
+      summary: Analytics for one short code
+      description: >
+        Total clicks (all-time), a geo breakdown, and a click count bucketed
+        by day/week/month for the requested `period`.
+      parameters:
+        - $ref: '#/components/parameters/CodePathParam'
+        - name: period
+          in: query
+          required: false
+          schema:
+            $ref: '#/components/schemas/StatsPeriod'
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StatsResponse'
+        '400':
+          description: Invalid `period` value (not one of DAY, WEEK, MONTH)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DefaultError'
+        '404':
+          description: Unknown code
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetail'
+
+components:
+  parameters:
+    CodePathParam:
+      name: code
+      in: path
+      required: true
+      schema:
+        type: string
+      example: aX9btQ2
+
+  schemas:
+    CreateShortUrlRequest:
+      type: object
+      required: [longUrl]
+      properties:
+        longUrl:
+          type: string
+          format: uri
+          description: Must be http/https, not point at an internal/loopback address, and stay under the configured max length.
+          example: https://example.com/a/very/long/path
+        customAlias:
+          type: string
+          nullable: true
+          pattern: '^[A-Za-z0-9_-]{3,16}$'
+          description: Optional user-chosen code. 3-16 chars of letters, digits, `_` or `-`.
+          example: launch-2026
+        expiresInSeconds:
+          type: integer
+          format: int64
+          nullable: true
+          description: Optional. Omit/null for a link that never expires.
+          example: 86400
+
+    CreateShortUrlResponse:
+      type: object
+      properties:
+        code:
+          type: string
+          example: aX9btQ2
+        shortUrl:
+          type: string
+          format: uri
+          example: http://localhost:8080/aX9btQ2
+        longUrl:
+          type: string
+          format: uri
+          example: https://example.com/a/very/long/path
+        expiresAt:
+          type: string
+          format: date-time
+          nullable: true
+
+    AdminUrlSummary:
+      type: object
+      description: One row in the admin/dashboard listing, or the response for a single-code lookup.
+      properties:
+        code:
+          type: string
+        longUrl:
+          type: string
+          format: uri
+        customAlias:
+          type: boolean
+          description: True if the code was user-chosen rather than randomly generated.
+        active:
+          type: boolean
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+          description: Bumped on any edit; equals createdAt for a never-edited link.
+        expiresAt:
+          type: string
+          format: date-time
+          nullable: true
+        totalClicks:
+          type: integer
+          format: int64
+
+    UpdateShortUrlRequest:
+      type: object
+      required: [longUrl, changeExpiry]
+      properties:
+        longUrl:
+          type: string
+          format: uri
+          example: https://example.com/updated-destination
+        changeExpiry:
+          type: boolean
+          default: false
+          description: false = leave the current expiry untouched (expiresInSeconds is ignored). true = replace it.
+        expiresInSeconds:
+          type: integer
+          format: int64
+          nullable: true
+          description: Only used when changeExpiry is true. Null clears the expiry (never expires).
+
+    UpdateShortUrlResponse:
+      type: object
+      properties:
+        code:
+          type: string
+        longUrl:
+          type: string
+          format: uri
+        expiresAt:
+          type: string
+          format: date-time
+          nullable: true
+        updatedAt:
+          type: string
+          format: date-time
+
+    StatsPeriod:
+      type: string
+      enum: [DAY, WEEK, MONTH]
+      default: DAY
+
+    StatsResponse:
+      type: object
+      properties:
+        code:
+          type: string
+        totalClicks:
+          type: integer
+          format: int64
+        clicksByCountry:
+          type: object
+          description: ISO-2 country code (or "UNKNOWN") -> click count.
+          additionalProperties:
+            type: integer
+            format: int64
+          example:
+            US: 12
+            IN: 4
+            UNKNOWN: 1
+        period:
+          type: string
+          description: Echoes the requested granularity, lowercased.
+          example: day
+        clicksByPeriod:
+          type: array
+          items:
+            $ref: '#/components/schemas/TimeBucket'
+
+    TimeBucket:
+      type: object
+      properties:
+        bucketStart:
+          type: string
+          format: date-time
+          description: Start of the bucket (Postgres date_trunc'd to the requested period, in the database session's timezone).
+        clicks:
+          type: integer
+          format: int64
+
+    ProblemDetail:
+      type: object
+      description: RFC 7807 problem details, as returned by every explicitly-handled application error.
+      properties:
+        type:
+          type: string
+          example: about:blank
+        title:
+          type: string
+          example: Not Found
+        status:
+          type: integer
+          example: 404
+        detail:
+          type: string
+          example: 'No active short URL for code: doesnotexist'
+        instance:
+          type: string
+          example: /api/v1/admin/urls/doesnotexist
+
+    DefaultError:
+      type: object
+      description: >
+        Spring Boot's built-in fallback error body (used for framework-level
+        failures this app doesn't explicitly handle, e.g. an invalid `period`
+        enum value) — distinct from ProblemDetail.
+      properties:
+        timestamp:
+          type: string
+          format: date-time
+        status:
+          type: integer
+          example: 400
+        error:
+          type: string
+          example: Bad Request
+        path:
+          type: string
+          example: /api/v1/admin/urls/whatever/stats

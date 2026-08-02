@@ -1,0 +1,51 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  Not logback-spring.yml: Logback has no built-in YAML config support (XML or Groovy
+  only), and Spring Boot only auto-detects logback-spring.xml/.groovy on the classpath.
+
+  Two appenders:
+    - CONSOLE: Spring Boot's default pattern/colors, unchanged (dev-time `mvn
+      spring-boot:run` output looks exactly as before).
+    - FILE: rolling file appender — the intended swap-in point for Splunk later.
+      Two ways to make that swap without touching application code (everything logs
+      through SLF4J):
+        1. Point a Splunk Universal Forwarder's monitor stanza at LOG_FILE_PATH, or
+        2. Once a Splunk HTTP Event Collector endpoint/token exists, add the
+           net.logstash.logback / splunk-library-javalogging dependency and replace
+           (or add alongside) the FILE appender-ref below with an HEC appender.
+-->
+<configuration>
+    <include resource="org/springframework/boot/logging/logback/defaults.xml"/>
+
+    <!-- Override via `logging.file.name` in application.yml or -Dlogging.file.name=... -->
+    <springProperty scope="context" name="LOG_FILE_PATH" source="logging.file.name"
+                     defaultValue="logs/url-shortener.log"/>
+
+    <appender name="CONSOLE" class="ch.qos.logback.core.ConsoleAppender">
+        <encoder>
+            <pattern>${CONSOLE_LOG_PATTERN}</pattern>
+        </encoder>
+    </appender>
+
+    <!--
+      Rolls daily and by size so a single file never grows unbounded; keeps 30 days
+      of history, capped at 1GB total on disk.
+    -->
+    <appender name="FILE" class="ch.qos.logback.core.rolling.RollingFileAppender">
+        <file>${LOG_FILE_PATH}</file>
+        <rollingPolicy class="ch.qos.logback.core.rolling.SizeAndTimeBasedRollingPolicy">
+            <fileNamePattern>${LOG_FILE_PATH}.%d{yyyy-MM-dd}.%i.gz</fileNamePattern>
+            <maxFileSize>100MB</maxFileSize>
+            <maxHistory>30</maxHistory>
+            <totalSizeCap>1GB</totalSizeCap>
+        </rollingPolicy>
+        <encoder>
+            <pattern>${FILE_LOG_PATTERN}</pattern>
+        </encoder>
+    </appender>
+
+    <root level="INFO">
+        <appender-ref ref="CONSOLE"/>
+        <appender-ref ref="FILE"/>
+    </root>
+</configuration>
