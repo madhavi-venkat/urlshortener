@@ -153,7 +153,7 @@ Postgres entirely.)
 
 ---
 
-## 5. The three required scenarios (map to my real experience)
+## 5. The three required scenarios
 
 1. **Greenfield** — build the core create + redirect API from scratch. *Decomposition → execution →
    tests.*
@@ -174,7 +174,7 @@ Postgres entirely.)
   the redirect path.
 - **Risk register:** collision (designed out), cache divergence (invalidate + TTL), analytics loss
   (async, accepted + documented), enumeration (mitigated + documented), open redirect (guarded).
-- **Correctness proof (my signature move):** a test that asserts create→redirect returns the *exact*
+- **Correctness proof:** a test that asserts create→redirect returns the *exact*
   original URL, and that a cache hit and a DB read return *identical* results — parity between cache
   and source of truth, so divergence can't hide.
 
