@@ -122,8 +122,7 @@ Shortener API** (the Spring Boot monolith — controllers, `ShortUrlService`, `S
 **Data stores** (PostgreSQL for links/clicks, Redis for the cache-aside redirect cache). The
 whole backend is modeled as one node, not one per controller — none of the three controllers are
 independently deployable, they ship in the same JAR, and decomposing further would misrepresent
-the actual deployment unit. Editable source (FigJam, live):
-https://www.figma.com/board/xy88no3VflfWb7JDhJKKp3
+the actual deployment unit.
 
 **Create flow:** validate URL → (guard malicious) → allocate code → persist Postgres → return.
 **Redirect flow:** Redis lookup → hit: 302 + async click event → miss: Postgres → populate cache →
@@ -151,8 +150,6 @@ backfilling the cache), then `302 Found` — with the click record fired off as 
 message to `ClickRecorder` *after* the redirect, so it can never delay or break it. (A cache
 **hit** is shorter: `Browser → RedirectController → ShortUrlService → Redis (hit) → 302` — skips
 Postgres entirely.)
-
-Editable source (FigJam, live): https://www.figma.com/board/xy88no3VflfWb7JDhJKKp3
 
 ---
 
