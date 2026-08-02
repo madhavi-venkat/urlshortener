@@ -119,6 +119,30 @@ just be ready to explain the collision-retry logic live.*
 302 (or 404 if unknown/expired).
 **Stats flow:** read aggregated counts for a code.
 
+### Sequence diagrams
+
+Generated from the actual code (controllers, services, cache TTL logic), not from this planning
+doc — see each diagram's own annotations for the exact class/method names involved.
+
+**Flow 1 — Create short URL**
+
+![Create short URL sequence diagram](./docs/diagrams/flow-create-url.png)
+
+`Browser → UrlController → Validator (safety check) → ShortUrlService → Postgres`, ending in
+`201 Created`.
+
+**Flow 2 — Resolve short URL and redirect**
+
+![Resolve short URL and redirect sequence diagram](./docs/diagrams/flow-redirect.png)
+
+`Browser → RedirectController → ShortUrlService`, cache-aside against Redis (shown on a **miss**,
+backfilling the cache), then `302 Found` — with the click record fired off as a separate async
+message to `ClickRecorder` *after* the redirect, so it can never delay or break it. (A cache
+**hit** is shorter: `Browser → RedirectController → ShortUrlService → Redis (hit) → 302` — skips
+Postgres entirely.)
+
+Editable source (FigJam, live): https://www.figma.com/board/xy88no3VflfWb7JDhJKKp3
+
 ---
 
 ## 5. The three required scenarios (map to my real experience)

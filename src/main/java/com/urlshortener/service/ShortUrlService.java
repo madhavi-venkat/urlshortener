@@ -92,6 +92,24 @@ public class ShortUrlService {
                 "Could not generate a unique code after " + MAX_GENERATION_ATTEMPTS + " attempts.");
     }
 
+    /**
+     * Edits an existing code's destination and, optionally, its expiry. Re-runs the same
+     * safety gate as creation, then evicts any cached redirect target so the change is
+     * visible on the very next redirect rather than waiting out the cache TTL.
+     */
+    @Transactional
+    public ShortUrl update(String code, String newLongUrl, boolean changeExpiry, Long expiresInSeconds) {
+        urlSafetyValidator.validate(newLongUrl);
+
+        ShortUrl entity = repository.findByCode(code)
+                .orElseThrow(() -> new ShortUrlNotFoundException(code));
+        entity.applyEdit(newLongUrl, changeExpiry, resolveExpiry(expiresInSeconds));
+        repository.save(entity);
+
+        cache.evict(code);
+        return entity;
+    }
+
     @Transactional(readOnly = true)
     public ShortUrl resolve(String code) {
         return repository.findByCode(code)

@@ -19,6 +19,34 @@ validation, and AI-usage traceability documented alongside the code.
 - Docker (for Postgres + Redis)
 - Node 18+ (for the frontend)
 
+### Installing/starting Docker, by OS
+
+Once Docker is installed and running, `docker compose up -d` (below) is identical on every
+platform — what differs is only getting the daemon itself installed and started.
+
+**Windows**
+1. Install [Docker Desktop for Windows](https://www.docker.com/products/docker-desktop/) — the
+   WSL2 backend is the default and recommended option (installer will prompt to enable WSL2 if
+   it isn't already; reboot if asked).
+2. Launch Docker Desktop from the Start menu and wait for the whale icon in the system tray to
+   read "Docker Desktop is running."
+3. Verify from PowerShell or Git Bash: `docker version`
+
+**macOS**
+1. Install [Docker Desktop for Mac](https://www.docker.com/products/docker-desktop/) — pick the
+   Apple Silicon or Intel build matching your chip.
+2. Launch Docker Desktop from Applications/Spotlight and wait for the whale icon in the menu bar
+   to stop animating.
+3. Verify from Terminal: `docker version`
+
+**Linux**
+1. Install Docker Engine + the Compose plugin via your distro's package manager, or Docker's
+   official convenience script: `curl -fsSL https://get.docker.com | sh`
+2. Add your user to the `docker` group so you don't need `sudo` for every command, then log out
+   and back in: `sudo usermod -aG docker $USER`
+3. Start and enable the daemon: `sudo systemctl enable --now docker`
+4. Verify: `docker version`
+
 ## Run the backend
 
 ```bash
