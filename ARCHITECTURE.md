@@ -211,5 +211,5 @@ sequenceDiagram
   all-links listing) but that path has **no access control** — same "no auth" limitation
   above, just now visible as an unguarded admin surface rather than a hypothetical one.
   Next step before any non-local exposure: HTTP Basic (or similar) in front of `/admin/**`. Could expand using Analytics platforms for more precise analytics. 
-  - User based Shorteners with Authentication and Authorization
+- User based Shorteners with Authentication and Authorization
 
