@@ -164,6 +164,22 @@ message to `ClickRecorder` *after* the redirect, so it can never delay or break 
 **hit** is shorter: `Browser → RedirectController → ShortUrlService → Redis (hit) → 302` — skips
 Postgres entirely.)
 
+**Flow 3 — Analytics READ**
+## 3. Analytics read — `GET /api/v1/urls/{code}/stats`
+ 
+```mermaid
+sequenceDiagram
+    participant C as Client
+    participant Ctl as UrlController
+    participant Svc as StatsService
+    participant DB as Postgres
+    C->>Ctl: GET /{code}/stats
+    Ctl->>Svc: statsFor(code)
+    Svc->>DB: find url (404 if none)
+    Svc->>DB: countByShortUrlId + countByCountry
+    DB-->>Svc: total, by-country
+    Svc-->>C: {code, totalClicks, clicksByCountry}
+```
 ---
 
 ## 5. The three required scenarios
