@@ -124,6 +124,19 @@ whole backend is modeled as one node, not one per controller — none of the thr
 independently deployable, they ship in the same JAR, and decomposing further would misrepresent
 the actual deployment unit.
 
+```mermaid
+flowchart LR
+    UI[React SPA<br/>:5173]
+    API[Spring Boot API<br/>:8080]
+    PG[(PostgreSQL<br/>source of truth)]
+    RD[(Redis<br/>redirect cache)]
+    UI -- REST /api/v1 --> API
+    Client((Browser)) -- GET /{code} --> API
+    API --> PG
+    API -- cache-aside --> RD
+    API -- async, IP discarded --> PG
+```
+
 **Create flow:** validate URL → (guard malicious) → allocate code → persist Postgres → return.
 **Redirect flow:** Redis lookup → hit: 302 + async click event → miss: Postgres → populate cache →
 302 (or 404 if unknown/expired).
