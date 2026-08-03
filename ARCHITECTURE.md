@@ -22,9 +22,6 @@ engineering interest is **not** the happy path; it's the failure modes, because 
   changed. Silent.
 - **Analytics undercounting** → click tracking silently drops events under load.
 
-The design principle throughout: **fail loudly or degrade safely — never serve a confidently wrong
-redirect.** (This is the same silent-failure discipline I apply to batch money-movement systems.)
-
 ---
 
 ## 2. Requirements
@@ -60,15 +57,13 @@ redirect.** (This is the same silent-failure discipline I apply to batch money-m
 structurally* rather than defending against it — consistent with "design out the silent failure, don't
 detect it after." Trade-off: sequential codes are guessable/enumerable (info leak + scraping risk).
 **Mitigation:** offset/shuffle the counter or seed with a non-zero start, and note enumeration as a
-documented risk. *If you prefer random-with-retry to avoid enumeration, that's a defensible override —
-just be ready to explain the collision-retry logic live.*
+documented risk. 
 
 ### 3.2 Storage — PostgreSQL **[DECIDED]**
 - Table `short_url(code PK, long_url, created_at, expires_at, active)`.
 - Code is the primary key — point lookups are the dominant query.
 - **[CONFIRM]** Same long URL submitted twice → new code, or return existing? *Recommend: new code by
-  default (URLs aren't unique owners); note idempotency as a possible enhancement. This is a real
-  decision an evaluator will probe — have a reason.*
+  default (URLs aren't unique owners); note idempotency as a possible enhancement. 
 
 ### 3.3 Caching — Redis, cache-aside **[DECIDED]**
 - Redirect path: check Redis → miss → read Postgres → populate Redis (TTL). Hot links stay in cache.
@@ -89,12 +84,11 @@ just be ready to explain the collision-retry logic live.*
 ### 3.5 Redirect status code **[CONFIRM]**
 - `301` (permanent, cacheable by browser — fewer hits, worse analytics) vs `302`/`307` (temporary —
   every click reaches us, accurate analytics). *Recommend **302** so analytics stays accurate; note the
-  trade-off explicitly. This is a small decision that shows real judgment — evaluators love it.*
+  trade-off explicitly.*
 
 ### 3.6 Security **[DECIDED]**
 - **Open-redirect / malicious-URL guard** — a shortener is a natural phishing vector. Validate scheme
-  (http/https only), block internal/loopback ranges, optionally denylist. *This is the security-rigor
-  criterion — don't skip it.*
+  (http/https only), block internal/loopback ranges, optionally denylist. 
 - Input validation (URL well-formedness, length caps).
 - Rate limiting on create.
 - No secrets in code; env-based config.
@@ -190,8 +184,7 @@ sequenceDiagram
    which modules/flows change, how I avoid regressing the redirect path.* (This mirrors real
    enhancement work — I'll show the before/after and the blast radius.)
 3. **Ambiguous** — requirement: *"add analytics."* Under-specified. I normalize it: what is a click,
-   unique vs total, bots, real-time vs batch — state assumptions, pick a defensible minimal scope,
-   note what I deliberately left out.
+   unique vs total, bots, real-time vs batch — state assumptions, pick a  minimal scope.
 
 ---
 
@@ -209,13 +202,14 @@ sequenceDiagram
 
 ---
 
-## 7. Assumptions & limitations *(fill as I build — honesty scores)*
+## 7. Assumptions & Future Scope
 - Single-instance prototype; horizontal scale (code-allocation under multiple instances) discussed but
   not implemented.
-- Analytics is best-effort, not guaranteed delivery.
+- Analytics is best-effort with minimal features, Future inclusions - Geo based stats, Unique user cliks.
 - No auth/multi-tenant; out of scope, noted deliberately.
 - Analytics lives under `/api/v1/admin/**` (an admin module: per-code stats plus an
   all-links listing) but that path has **no access control** — same "no auth" limitation
   above, just now visible as an unguarded admin surface rather than a hypothetical one.
-  Next step before any non-local exposure: HTTP Basic (or similar) in front of `/admin/**`.
-- *(add more as they arise — an honest limitations section reads as senior, not weak.)*
+  Next step before any non-local exposure: HTTP Basic (or similar) in front of `/admin/**`. Could expand using Analytics platforms for more precise analytics. 
+  - User based Shorteners with Authentication and Authorization
+
